@@ -24,6 +24,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
+import android.util.Log;
 
 public class PusherCallback extends Handler {
 
@@ -40,7 +41,7 @@ public class PusherCallback extends Handler {
 		String eventName = payload.getString("eventName");
 		String channelName = payload.getString("channelName");
 		String eventData = payload.getString("eventData");
-
+		
 		onEvent(eventName, eventData, channelName);
 	}
 
@@ -53,6 +54,7 @@ public class PusherCallback extends Handler {
 			JSONObject parsedEventData = new JSONObject(eventData);
 			onEvent(eventName, parsedEventData, channelName);
 		} catch (JSONException e) {
+			Log.d("PusherCallback", "Could not get JSON from " + eventData);
 		}
 	}
 }

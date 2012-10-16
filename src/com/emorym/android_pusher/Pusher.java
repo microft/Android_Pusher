@@ -35,7 +35,8 @@ public class Pusher implements PusherEventEmitter {
 	private static final String LOG_TAG = "Pusher";
 
 	private static final String PUSHER_CLIENT = "android-Android_Pusher";
-	private static final String VERSION = "1.11.1";
+	//private static final String VERSION = "1.11.1";
+	private static final String VERSION = "7";
 
 	protected static final String PUSHER_EVENT_CONNECTION_ESTABLISHED = "pusher:connection_established";
 	protected static final String PUSHER_EVENT_SUBSCRIBE = "pusher:subscribe";
@@ -220,10 +221,15 @@ public class Pusher implements PusherEventEmitter {
 		mGlobalChannel.dispatchEvents(eventName, eventData);
 
 		PusherChannel localChannel = mLocalChannels.get(channelName);
+		
+		
+		Log.d( LOG_TAG, mLocalChannels.keySet().toString() );
 
-		if (localChannel == null)
+		if (localChannel == null) {
+			Log.d(LOG_TAG, "NO channel found");
 			return;
-
+		}
+		
 		localChannel.dispatchEvents(eventName, eventData);
 	}
 
@@ -272,5 +278,9 @@ public class Pusher implements PusherEventEmitter {
 
 	private PusherChannel removeLocalChannel(String channelName) {
 		return mLocalChannels.remove(channelName);
+	}
+		
+	public PusherConnection connection(){
+		return this.mConnection;
 	}
 }

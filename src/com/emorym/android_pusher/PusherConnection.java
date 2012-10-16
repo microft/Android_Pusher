@@ -19,10 +19,18 @@ package com.emorym.android_pusher;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Timer;
+import java.util.TimerTask;
 
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import android.os.Bundle;
+import android.os.Message;
 import android.util.Log;
 import de.roderick.weberknecht.WebSocket;
 import de.roderick.weberknecht.WebSocketConnection;
@@ -30,11 +38,28 @@ import de.roderick.weberknecht.WebSocketEventHandler;
 import de.roderick.weberknecht.WebSocketException;
 import de.roderick.weberknecht.WebSocketMessage;
 
-class PusherConnection {
-	private static final String LOG_TAG = "Pusher";
+class PusherConnection implements PusherEventEmitter {
+	private static final String LOG_TAG = "PusherConnection";
 
 	public Pusher mPusher;
 	public WebSocket mWebSocket;
+
+	public String mState = "initialized";
+
+	protected static final String STATE_CONNECTING = "connecting";
+	protected static final String STATE_CONNECTED = "connected";
+	protected static final String STATE_UNAVAILABLE = "unavailable";
+	protected static final String STATE_FAILED = "failed";
+	protected static final String STATE_DISCONNECTED = "disconnected";
+	
+	protected static final String CONNECTING_IN = "connecting_in";
+	
+	protected static final long UNAVAILABILITY_CHECK_TIMER = 10000L;
+
+	private List<PusherCallback> mGlobalCallbacks = new ArrayList<PusherCallback>();
+	private Map<String, List<PusherCallback>> mLocalCallbacks = new HashMap<String, List<PusherCallback>>();
+	
+	private Timer unavailabilityTimer = new Timer();
 
 	public PusherConnection(Pusher pusher) {
 		mPusher = pusher;
@@ -42,17 +67,24 @@ class PusherConnection {
 
 	public void connect() {
 		try {
+			this.changeConnectionState(STATE_CONNECTING);
+
 			URI url = new URI(mPusher.getUrl());
 			Log.d(LOG_TAG, "Connecting to " + url.toString());
 
 			mWebSocket = new WebSocketConnection(url);
 			mWebSocket.setEventHandler(new WebSocketEventHandler() {
 				public void onOpen() {
-					Log.d(LOG_TAG, "Successfully opened Websocket");
+					// Log.d(LOG_TAG, "Successfully opened Websocket");
+					PusherConnection.this
+							.changeConnectionState(STATE_CONNECTED);
 				}
 
 				public void onMessage(WebSocketMessage message) {
-					Log.d(LOG_TAG, "Received from Websocket " + message.getText());
+					Log.d(LOG_TAG,
+							"Received from Websocket " + message.getText());
+					
+					changeConnectionState(STATE_CONNECTED);
 
 					try {
 						JSONObject parsed = new JSONObject(message.getText());
@@ -60,28 +92,46 @@ class PusherConnection {
 						String channelName = parsed.optString("channel", null);
 						String eventData = parsed.getString("data");
 
-						if (eventName.equals(Pusher.PUSHER_EVENT_CONNECTION_ESTABLISHED)) {
-							JSONObject parsedEventData = new JSONObject(eventData);
-							String socketId = parsedEventData.getString("socket_id");
+						if (eventName
+								.equals(Pusher.PUSHER_EVENT_CONNECTION_ESTABLISHED)) {
+							JSONObject parsedEventData = new JSONObject(
+									eventData);
+							String socketId = parsedEventData
+									.getString("socket_id");
 							mPusher.onConnected(socketId);
 						} else {
-							mPusher.dispatchEvents(eventName, eventData, channelName);
+							mPusher.dispatchEvents(eventName, eventData,
+									channelName);
 						}
 					} catch (JSONException e) {
-						e.printStackTrace();
+						Log.d(LOG_TAG, e.toString());
 					}
 				}
 
 				public void onClose() {
-					Log.d(LOG_TAG, "Successfully closed Websocket");
+					// Log.d(LOG_TAG, "Successfully closed Websocket");
+					PusherConnection.this.changeConnectionState(STATE_DISCONNECTED);
 				}
+				
+				public void onPing() {
+					Log.d(LOG_TAG, "Got a Ping");
+					changeConnectionState(STATE_CONNECTED);
+				}
+	            public void onPong() {
+	            	Log.d(LOG_TAG, "Got a Pong");
+	            	changeConnectionState(STATE_CONNECTED);
+	            }
+					
 			});
 			mWebSocket.connect();
 
 		} catch (URISyntaxException e) {
-			e.printStackTrace();
+			this.changeConnectionState(STATE_FAILED);
+			//e.printStackTrace();
 		} catch (WebSocketException e) {
-			e.printStackTrace();
+			//Log.d(LOG_TAG, "websocket exception on connect");
+			this.connectionUnavailable();
+			//e.printStackTrace();
 		}
 	}
 
@@ -94,6 +144,7 @@ class PusherConnection {
 			}
 		}
 		mPusher.onDisconnected();
+		this.changeConnectionState(STATE_DISCONNECTED);
 	}
 
 	public void send(String eventName, JSONObject eventData, String channelName) {
@@ -112,12 +163,117 @@ class PusherConnection {
 
 				mWebSocket.send(message.toString());
 
+				this.changeConnectionState(STATE_CONNECTED);
+				
 				Log.d(LOG_TAG, "sent message " + message.toString());
 			} catch (JSONException e) {
 				e.printStackTrace();
 			} catch (WebSocketException e) {
-				e.printStackTrace();
+				//e.printStackTrace();
+				//Log.d(LOG_TAG, "websocket exception");
+				this.connectionUnavailable();
+			}
+		} else {
+			//Log.d(LOG_TAG, "not connected in send");
+			this.connectionUnavailable();
+			
+		}
+	}
+
+	private void changeConnectionState(String state) {
+		if ( ! state.equals(this.mState) ) {
+			this.mState = state;
+			this.dispatchEvents(state);
+			Log.d("PusherConnection", "State changed to " + state);
+		}
+	}
+
+	public void bind(String event, PusherCallback callback) {
+		/*
+		 * if there are no callbacks for that event assigned yet, initialize the
+		 * list
+		 */
+		if (!mLocalCallbacks.containsKey(event)) {
+			mLocalCallbacks.put(event, new ArrayList<PusherCallback>());
+		}
+
+		/* add the callback to the event's callback list */
+		mLocalCallbacks.get(event).add(callback);
+		Log.d(LOG_TAG, "bound to event " + event + " on connection");
+	}
+
+	public void bindAll(PusherCallback callback) {
+		mGlobalCallbacks.add(callback);
+		Log.d(LOG_TAG, "bound to all events on connection ");
+	}
+
+	public void unbind(PusherCallback callback) {
+		/* remove all matching callbacks from the global callback list */
+		while (mGlobalCallbacks.remove(callback))
+			;
+
+		/* remove all matching callbacks from each local callback list */
+		for (List<PusherCallback> localCallbacks : mLocalCallbacks.values()) {
+			while (localCallbacks.remove(callback))
+				;
+		}
+	}
+
+	public void unbindAll() {
+		/* remove all callbacks from the global callback list */
+		mGlobalCallbacks.clear();
+		/* remove all local callback lists, that is removes all local callbacks */
+		mLocalCallbacks.clear();
+	}
+
+	private void connectionUnavailable() {
+		this.changeConnectionState(STATE_UNAVAILABLE);
+		this.dispatchEvents(CONNECTING_IN, "{'delay': '" + UNAVAILABILITY_CHECK_TIMER + "'}");
+		Log.d(LOG_TAG, "connection_in");
+		// start the unavailable timer
+		this.unavailabilityTimer.cancel();
+		this.unavailabilityTimer = new Timer();
+        this.unavailabilityTimer.schedule(new TimerTask() {
+            @Override
+            public void run() {
+            	if ( ! mWebSocket.isConnected() ) {
+            		connect();
+            	}
+            	if (mWebSocket.isConnected()){
+            		send("ping", new JSONObject(), null);
+            	}
+
+            }
+        }, UNAVAILABILITY_CHECK_TIMER);
+	}
+	
+	private void dispatchEvents(String state){
+		this.dispatchEvents(state, "{}");
+	}
+	
+	private void dispatchEvents(String state, String eventData){
+		/* Construct a message that a PusherCallback will understand */
+		Bundle payload = new Bundle();
+		payload.putString("eventName", state);
+		payload.putString("eventData", eventData);
+		payload.putString("channelName", null);
+		Message msg = Message.obtain();
+		msg.setData(payload);
+
+		for (PusherCallback callback : mGlobalCallbacks) {
+			callback.sendMessage(msg);
+		}
+
+		if (this.mLocalCallbacks.containsKey(state)) {
+
+			for (PusherCallback callback : this.mLocalCallbacks.get(state)) {
+				callback.sendMessage(msg);
 			}
 		}
+		
+	}
+	
+	public String state(){
+		return this.mState;
 	}
 }

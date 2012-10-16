@@ -33,8 +33,8 @@ public class PusherSampleActivity extends Activity {
 	/* the log tag constant */
 	private static final String LOG_TAG = "Pusher";
 
-	private static final String PUSHER_APP_KEY = "e9eb36b9ac8232b07f51";
-	private static final String PUSHER_APP_SECRET = "30688cf9249887c19b48";
+	private static final String PUSHER_APP_KEY = "33e9ab34f98fcc05005f";
+	private static final String PUSHER_APP_SECRET = "c14f5c143ebb5a331727";
 
 	private static final String PUBLIC_CHANNEL = "public-channel";
 	private static final String PRIVATE_CHANNEL = "private-channel";
@@ -58,7 +58,7 @@ public class PusherSampleActivity extends Activity {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.main);
 
-		mPusher = new Pusher(PUSHER_APP_KEY, PUSHER_APP_SECRET);
+		mPusher = new Pusher(PUSHER_APP_KEY, PUSHER_APP_SECRET, true);
 		mPusher.bindAll(new PusherCallback() {
 			@Override
 			public void onEvent(String eventName, JSONObject eventData, String channelName) {
@@ -69,6 +69,18 @@ public class PusherSampleActivity extends Activity {
 				Log.d(LOG_TAG, "Received " + eventData.toString() + " for event '" + eventName + "' on channel '" + channelName + "'.");
 			}
 		});
+		
+		
+		mPusher.connection().bindAll(new PusherCallback(){
+			@Override
+			public void onEvent( String eventName, JSONObject eventData, String channelName) {
+				Log.d(LOG_TAG, "Received from connection: " + eventName );
+			}
+			
+		});
+		
+		
+		
 
 		/* setup the text fields */
 		eventNameField = (EditText) findViewById(R.id.event_name);
@@ -85,7 +97,17 @@ public class PusherSampleActivity extends Activity {
 			@Override
 			public void onClick(View v) {
 				if (togglePublicChannelButton.isChecked()) {
-					mPusher.subscribe(PUBLIC_CHANNEL);
+					PusherChannel channel = mPusher.subscribe(PUBLIC_CHANNEL);
+					channel.bindAll( new PusherCallback(){
+						@Override
+						public void onEvent(String eventName, JSONObject eventData, String channelName) {
+							Toast.makeText(PusherSampleActivity.this,
+										   "Received\nEvent: " + eventName + "\nChannel: " + channelName + "\nData: " + eventData.toString(),
+										   Toast.LENGTH_LONG).show();
+							
+							Log.d(LOG_TAG, "Received " + eventData.toString() + " for event '" + eventName + "' on channel '" + channelName + "'.");
+						}					
+					});
 				} else {
 					mPusher.unsubscribe(PUBLIC_CHANNEL);
 				}
@@ -96,7 +118,8 @@ public class PusherSampleActivity extends Activity {
 			@Override
 			public void onClick(View v) {
 				if (togglePrivateChannelButton.isChecked()) {
-					mPusher.subscribe(PRIVATE_CHANNEL);
+					 mPusher.subscribe(PRIVATE_CHANNEL);
+					
 				} else {
 					mPusher.unsubscribe(PRIVATE_CHANNEL);
 				}
