@@ -17,6 +17,7 @@ package com.emorym.android_pusher;
  *  Contributors: Martin Linkhorst
  */
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -27,6 +28,7 @@ import android.os.Message;
 import android.util.Log;
 
 public class PusherCallback extends Handler {
+	private static final String LOG_TAG = "PusherCallback";
 
 	public PusherCallback() {
 		super(Looper.getMainLooper());
@@ -46,15 +48,28 @@ public class PusherCallback extends Handler {
 	}
 
 	public void onEvent(String eventName, JSONObject eventData, String channelName) {
-
+		Log.d(LOG_TAG, "Got event:" + eventName + " on channel:" + channelName + " with data: " + eventData.toString());
+	}
+	
+	public void onEvent(String eventName, JSONArray eventData, String channelName) {
+		Log.d(LOG_TAG, "Got event:" + eventName + " on channel:" + channelName + " with data: " + eventData.toString());
+		
 	}
 
 	public void onEvent(String eventName, String eventData, String channelName) {
 		try {
 			JSONObject parsedEventData = new JSONObject(eventData);
 			onEvent(eventName, parsedEventData, channelName);
+			return;
 		} catch (JSONException e) {
-			Log.d("PusherCallback", "Could not get JSON from " + eventData);
+			Log.d(LOG_TAG, "Could not get JSONObject from " + eventData);
+		}
+		try {
+			JSONArray parsedEventData = new JSONArray(eventData);
+			onEvent(eventName, parsedEventData, channelName);
+			return;
+		} catch (JSONException e) {
+			Log.d(LOG_TAG, "Could not get JSONArray from " + eventData);
 		}
 	}
 }

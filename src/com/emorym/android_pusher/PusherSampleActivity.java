@@ -28,6 +28,8 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
 import android.widget.ToggleButton;
+import java.util.Random;
+
 
 public class PusherSampleActivity extends Activity {
 	/* the log tag constant */
@@ -38,6 +40,7 @@ public class PusherSampleActivity extends Activity {
 
 	private static final String PUBLIC_CHANNEL = "public-channel";
 	private static final String PRIVATE_CHANNEL = "private-channel";
+	private static final String PRESENCE_CHANNEL = "presence-channel";
 
 	private Pusher mPusher;
 
@@ -59,6 +62,12 @@ public class PusherSampleActivity extends Activity {
 		setContentView(R.layout.main);
 
 		mPusher = new Pusher(PUSHER_APP_KEY, PUSHER_APP_SECRET);
+		
+		Random random = new Random();
+		mPusher.setUserId(""+random.nextInt());
+		//mPusher.setUserInfo("name", ""+random.nextInt());
+		//mPusher.setUserInfo("email", ""+random.nextInt()+"@silvabraga.com");
+		
 		mPusher.bindAll(new PusherCallback() {
 			@Override
 			public void onEvent(String eventName, JSONObject eventData, String channelName) {
@@ -118,10 +127,33 @@ public class PusherSampleActivity extends Activity {
 			@Override
 			public void onClick(View v) {
 				if (togglePrivateChannelButton.isChecked()) {
-					 mPusher.subscribe(PRIVATE_CHANNEL);
+					 PusherChannel cprivate = mPusher.subscribe(PRIVATE_CHANNEL);
+					 cprivate.bindAll(new PusherCallback(){
+							@Override
+							public void onEvent(String eventName, JSONObject eventData, String channelName) {
+								Toast.makeText(PusherSampleActivity.this,
+											   "Received\nEvent: " + eventName + "\nChannel: " + channelName + "\nData: " + eventData.toString(),
+											   Toast.LENGTH_LONG).show();
+								
+								Log.d(LOG_TAG, "Received " + eventData.toString() + " for event '" + eventName + "' on channel '" + channelName + "'.");
+							}					
+						});
+					 
+					 PusherChannel presence = mPusher.subscribe(PRESENCE_CHANNEL);
+					 presence.bindAll(new PusherCallback(){
+						@Override
+						public void onEvent(String eventName, JSONObject eventData, String channelName) {
+							Toast.makeText(PusherSampleActivity.this,
+										   "Received\nEvent: " + eventName + "\nChannel: " + channelName + "\nData: " + eventData.toString(),
+										   Toast.LENGTH_LONG).show();
+							
+							Log.d(LOG_TAG, "Received " + eventData.toString() + " for event '" + eventName + "' on channel '" + channelName + "'.");
+						}					
+					});
 					
 				} else {
 					mPusher.unsubscribe(PRIVATE_CHANNEL);
+					mPusher.unsubscribe(PRESENCE_CHANNEL);
 				}
 			}
 		});

@@ -41,6 +41,10 @@ public class PusherChannel implements PusherEventEmitter {
 	public boolean isPrivate() {
 		return mName.startsWith("private-");
 	}
+	
+	public boolean isPresence(){
+		return mName.startsWith("presence-");
+	}
 
 	public void bind(String event, PusherCallback callback) {
 		/* if there are no callbacks for that event assigned yet, initialize the list */

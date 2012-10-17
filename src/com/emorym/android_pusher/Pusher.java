@@ -61,6 +61,9 @@ public class Pusher implements PusherEventEmitter {
 
 	public PusherChannel mGlobalChannel = new PusherChannel("pusher_global_channel");
 	public Map<String, PusherChannel> mLocalChannels = new HashMap<String, PusherChannel>();
+	
+	private String userId = "";
+	private JSONObject userInfo = new JSONObject();
 
 	public Pusher(String pusherKey, String pusherSecret, boolean encrypted) {
 		init(pusherKey, pusherSecret, encrypted);
@@ -77,11 +80,12 @@ public class Pusher implements PusherEventEmitter {
 	public Pusher(String pusherKey) {
 		init(pusherKey, null, true);
 	}
-
+	
 	private void init(String pusherKey, String pusherSecret, boolean encrypted) {
 		mPusherKey = pusherKey;
 		mPusherSecret = pusherSecret;
 		mEncrypted = encrypted;
+		
 	}
 
 	public void connect() {
@@ -186,6 +190,18 @@ public class Pusher implements PusherEventEmitter {
 				String authInfo = authenticate(channel.getName());
 				eventData.put("auth", authInfo);
 			}
+			
+			if (channel.isPresence()){
+				String channelName = channel.getName();
+				JSONObject channel_data = new JSONObject();		
+				channel_data.put("user_id", userId);
+				if (userInfo.keys().hasNext()){
+					channel_data.put("user_info", userInfo);
+				}
+				String authInfo = authenticate(channelName + ":" + channel_data.toString());
+				eventData.put("auth", authInfo);
+				eventData.put("channel_data", channel_data.toString());
+			}
 
 			sendEvent(eventName, eventData, null);
 
@@ -282,5 +298,21 @@ public class Pusher implements PusherEventEmitter {
 		
 	public PusherConnection connection(){
 		return this.mConnection;
+	}
+	
+	public void setUserInfo( String key, String value) {
+		try {
+			userInfo.put(key, value);
+		} catch (JSONException e) {
+			e.printStackTrace();
+		}
+	}
+	
+	public void delUserInfo( String key ){
+		userInfo.remove(key);
+	}
+	
+	public void setUserId( String value){
+		this.userId = value;
 	}
 }
