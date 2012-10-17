@@ -128,7 +128,6 @@ class PusherConnection implements PusherEventEmitter {
 			this.changeConnectionState(STATE_FAILED);
 			//e.printStackTrace();
 		} catch (WebSocketException e) {
-			//Log.d(LOG_TAG, "websocket exception on connect");
 			this.connectionUnavailable();
 			//e.printStackTrace();
 		}
@@ -169,13 +168,10 @@ class PusherConnection implements PusherEventEmitter {
 				e.printStackTrace();
 			} catch (WebSocketException e) {
 				//e.printStackTrace();
-				//Log.d(LOG_TAG, "websocket exception");
 				this.connectionUnavailable();
 			}
 		} else {
-			//Log.d(LOG_TAG, "not connected in send");
 			this.connectionUnavailable();
-			
 		}
 	}
 
