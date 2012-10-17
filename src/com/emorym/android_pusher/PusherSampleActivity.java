@@ -58,7 +58,7 @@ public class PusherSampleActivity extends Activity {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.main);
 
-		mPusher = new Pusher(PUSHER_APP_KEY, PUSHER_APP_SECRET, true);
+		mPusher = new Pusher(PUSHER_APP_KEY, PUSHER_APP_SECRET);
 		mPusher.bindAll(new PusherCallback() {
 			@Override
 			public void onEvent(String eventName, JSONObject eventData, String channelName) {

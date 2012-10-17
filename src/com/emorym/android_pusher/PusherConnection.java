@@ -33,7 +33,6 @@ import android.os.Bundle;
 import android.os.Message;
 import android.util.Log;
 import de.roderick.weberknecht.WebSocket;
-import de.roderick.weberknecht.WebSocketConnection;
 import de.roderick.weberknecht.WebSocketEventHandler;
 import de.roderick.weberknecht.WebSocketException;
 import de.roderick.weberknecht.WebSocketMessage;
@@ -72,7 +71,7 @@ class PusherConnection implements PusherEventEmitter {
 			URI url = new URI(mPusher.getUrl());
 			Log.d(LOG_TAG, "Connecting to " + url.toString());
 
-			mWebSocket = new WebSocketConnection(url);
+			mWebSocket = new WebSocket(url);
 			mWebSocket.setEventHandler(new WebSocketEventHandler() {
 				public void onOpen() {
 					// Log.d(LOG_TAG, "Successfully opened Websocket");

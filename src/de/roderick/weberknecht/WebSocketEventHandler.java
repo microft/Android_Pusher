@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2011 Roderick Baier
+ *  Copyright (C) 2012 Roderick Baier
  *  
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -26,4 +26,10 @@ public interface WebSocketEventHandler
 	
 	
 	public void onClose();
+	
+	
+	public void onPing();
+	
+	
+	public void onPong();
 }

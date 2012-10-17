@@ -223,10 +223,10 @@ public class Pusher implements PusherEventEmitter {
 		PusherChannel localChannel = mLocalChannels.get(channelName);
 		
 		
-		Log.d( LOG_TAG, mLocalChannels.keySet().toString() );
+		//Log.d( LOG_TAG, mLocalChannels.keySet().toString() );
 
 		if (localChannel == null) {
-			Log.d(LOG_TAG, "NO channel found");
+			//Log.d(LOG_TAG, "NO channel found");
 			return;
 		}
 		

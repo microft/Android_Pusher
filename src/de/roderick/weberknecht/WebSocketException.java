@@ -17,8 +17,7 @@
 package de.roderick.weberknecht;
 
 
-public class WebSocketException
-		extends Exception
+public class WebSocketException extends Exception
 {
 	private static final long serialVersionUID = 1L;
 
