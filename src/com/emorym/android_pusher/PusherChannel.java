@@ -18,9 +18,14 @@ package com.emorym.android_pusher;
  */
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import android.os.Bundle;
 import android.os.Message;
@@ -33,6 +38,8 @@ public class PusherChannel implements PusherEventEmitter {
 
 	private List<PusherCallback> mGlobalCallbacks = new ArrayList<PusherCallback>();
 	private Map<String, List<PusherCallback>> mLocalCallbacks = new HashMap<String, List<PusherCallback>>();
+	
+	private Map<String, JSONObject> mLocalUsers = new HashMap<String, JSONObject>();
 
 	public PusherChannel(String name) {
 		mName = name;
@@ -84,6 +91,46 @@ public class PusherChannel implements PusherEventEmitter {
 	}
 
 	public void dispatchEvents(String eventName, String eventData) {
+		if ( this.isPresence() ) {
+			if ( eventName.equalsIgnoreCase("pusher_internal:subscription_succeeded") ){
+				JSONArray users = null;
+				try {
+					users = new JSONArray(eventData);
+				} catch (JSONException e) {
+					users = new JSONArray();
+					e.printStackTrace();
+				}
+				for (int i =0;  i < users.length(); i++) {			
+					try {
+						JSONObject user = users.getJSONObject(i);
+						this.mLocalUsers.put(user.getString("user_id"), user.getJSONObject("user_info"));
+					} catch (JSONException e) {
+						e.printStackTrace();
+					}
+				}
+			} 
+			if (eventName.equalsIgnoreCase("pusher_internal:member_added")){
+				JSONObject user = null;
+				try {
+					user = new JSONObject( eventData );
+					JSONObject user_info = user.getJSONObject("user_info");
+					this.mLocalUsers.put(user.getString("user_id"), user_info);
+				} catch (JSONException e) {
+						e.printStackTrace();
+				}
+				
+			}
+			if (eventName.equalsIgnoreCase("pusher_internal:member_removed")) {
+				JSONObject user = null;
+				try {
+					user = new JSONObject( eventData );
+					this.mLocalUsers.remove(user.getString("user_id"));
+				} catch (JSONException e) {
+					e.printStackTrace();
+				}
+			}
+		}
+			
 		Bundle payload = new Bundle();
 		payload.putString("eventName", eventName);
 		payload.putString("eventData", eventData);
@@ -108,4 +155,16 @@ public class PusherChannel implements PusherEventEmitter {
 	public String getName() {
 		return mName;
 	}
+	
+	public Map<String,JSONObject> getUsers(){
+		//return new HashMap<String, JSONObject>(this.mLocalUsers);
+		Map<String, JSONObject> users = new HashMap<String, JSONObject>();
+		users.putAll(this.mLocalUsers);
+		return users;
+	}
+	
+	public JSONObject getUser(String user_id){
+		return this.mLocalUsers.get(user_id);
+	}
+	
 }

@@ -35,8 +35,8 @@ public class Pusher implements PusherEventEmitter {
 	private static final String LOG_TAG = "Pusher";
 
 	private static final String PUSHER_CLIENT = "android-Android_Pusher";
-	//private static final String VERSION = "1.11.1";
-	private static final String VERSION = "7";
+	private static final String VERSION = "1.11.1";
+	//private static final String VERSION = "7";
 
 	protected static final String PUSHER_EVENT_CONNECTION_ESTABLISHED = "pusher:connection_established";
 	protected static final String PUSHER_EVENT_SUBSCRIBE = "pusher:subscribe";
@@ -62,7 +62,7 @@ public class Pusher implements PusherEventEmitter {
 	public PusherChannel mGlobalChannel = new PusherChannel("pusher_global_channel");
 	public Map<String, PusherChannel> mLocalChannels = new HashMap<String, PusherChannel>();
 	
-	private String userId = "";
+	public String userId = "";
 	private JSONObject userInfo = new JSONObject();
 
 	public Pusher(String pusherKey, String pusherSecret, boolean encrypted) {
@@ -314,5 +314,9 @@ public class Pusher implements PusherEventEmitter {
 	
 	public void setUserId( String value){
 		this.userId = value;
+	}
+	
+	public PusherChannel getChannel(String value){
+		return mLocalChannels.get(value);
 	}
 }

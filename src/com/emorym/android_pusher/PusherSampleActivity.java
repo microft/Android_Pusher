@@ -17,6 +17,7 @@ package com.emorym.android_pusher;
  *  Contributors: Martin Linkhorst
  */
 
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import android.app.Activity;
@@ -28,6 +29,10 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
 import android.widget.ToggleButton;
+
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Random;
 
 
@@ -65,8 +70,8 @@ public class PusherSampleActivity extends Activity {
 		
 		Random random = new Random();
 		mPusher.setUserId(""+random.nextInt());
-		//mPusher.setUserInfo("name", ""+random.nextInt());
-		//mPusher.setUserInfo("email", ""+random.nextInt()+"@silvabraga.com");
+		mPusher.setUserInfo("name", ""+random.nextInt());
+		mPusher.setUserInfo("email", ""+random.nextInt()+"@silvabraga.com");
 		
 		mPusher.bindAll(new PusherCallback() {
 			@Override
@@ -161,13 +166,29 @@ public class PusherSampleActivity extends Activity {
 		sendButton.setOnClickListener(new OnClickListener() {
 			@Override
 			public void onClick(View v) {
-				try {
-					String eventName = eventNameField.getText().toString();
-					String channelName = channelNameField.getText().toString();
-					JSONObject eventData = new JSONObject(eventDataField.getText().toString());
-					mPusher.sendEvent(eventName, eventData, channelName);
-				} catch (Exception e) {
-					e.printStackTrace();
+//				try {
+//					String eventName = eventNameField.getText().toString();
+//					String channelName = channelNameField.getText().toString();
+//					JSONObject eventData = new JSONObject(eventDataField.getText().toString());
+//					mPusher.sendEvent(eventName, eventData, channelName);
+//				} catch (Exception e) {
+//					e.printStackTrace();
+//				}
+				PusherChannel presence_channel = mPusher.getChannel(PRESENCE_CHANNEL);
+				if ( presence_channel != null ){
+					HashMap<String, JSONObject> presence_users = (HashMap<String, JSONObject>) mPusher.getChannel(PRESENCE_CHANNEL).getUsers();
+					//Log.d(LOG_TAG, presence_users.toString());
+					JSONObject me = presence_users.get( mPusher.userId);
+
+					try {
+						me.put("XPTO", 123);
+					} catch (JSONException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+
+					presence_users = (HashMap<String, JSONObject>) mPusher.getChannel(PRESENCE_CHANNEL).getUsers();
+					Log.d(LOG_TAG, presence_users.toString());
 				}
 			}
 		});
