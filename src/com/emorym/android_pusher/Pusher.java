@@ -17,26 +17,41 @@ package com.emorym.android_pusher;
  *  Contributors: Martin Linkhorst
  */
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 
 import javax.crypto.Mac;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 
+import org.apache.http.client.ClientProtocolException;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.message.BasicNameValuePair;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import android.util.Log;
+import org.apache.http.HttpResponse;
+import org.apache.http.NameValuePair;
+import org.apache.http.client.entity.UrlEncodedFormEntity;
+//import android.util.Log;
 
 public class Pusher implements PusherEventEmitter {
 	private static final String LOG_TAG = "Pusher";
 
 	private static final String PUSHER_CLIENT = "android-Android_Pusher";
-	private static final String VERSION = "1.11.1";
-	//private static final String VERSION = "7";
+	//private static final String VERSION = "1.11.1";
+	private static final String VERSION = "5";
 
 	protected static final String PUSHER_EVENT_CONNECTION_ESTABLISHED = "pusher:connection_established";
 	protected static final String PUSHER_EVENT_SUBSCRIBE = "pusher:subscribe";
@@ -64,28 +79,38 @@ public class Pusher implements PusherEventEmitter {
 	
 	public String userId = "";
 	private JSONObject userInfo = new JSONObject();
+	
+	private PusherLogger mLogger = new PusherLogger() {};
+	
+	private String authURL = null;
+	private JSONObject auth = new JSONObject();
 
-	public Pusher(String pusherKey, String pusherSecret, boolean encrypted) {
-		init(pusherKey, pusherSecret, encrypted);
-	}
-
-	public Pusher(String pusherKey, String pusherSecret) {
-		init(pusherKey, pusherSecret, true);
-	}
-
-	public Pusher(String pusherKey, boolean encrypted) {
+//	public Pusher(String pusherKey, String pusherSecret, boolean encrypted) {
+//		init(pusherKey, pusherSecret, encrypted);
+//	}
+//
+//	public Pusher(String pusherKey, String pusherSecret) {
+//		init(pusherKey, pusherSecret, true);
+//	}
+//
+//	public Pusher(String pusherKey, boolean encrypted) {
+//		init(pusherKey, null, encrypted);
+//	}
+//
+//	public Pusher(String pusherKey) {
+//		init(pusherKey, null, true);
+//	}
+	
+	public Pusher(String pusherKey, String authURL, boolean encrypted, JSONObject auth){
 		init(pusherKey, null, encrypted);
-	}
-
-	public Pusher(String pusherKey) {
-		init(pusherKey, null, true);
+		this.authURL = authURL;
+		this.auth = auth;
 	}
 	
 	private void init(String pusherKey, String pusherSecret, boolean encrypted) {
 		mPusherKey = pusherKey;
 		mPusherSecret = pusherSecret;
 		mEncrypted = encrypted;
-		
 	}
 
 	public void connect() {
@@ -205,9 +230,11 @@ public class Pusher implements PusherEventEmitter {
 
 			sendEvent(eventName, eventData, null);
 
-			Log.d(LOG_TAG, "subscribed to channel " + channel.getName());
+			//Log.d(LOG_TAG, "subscribed to channel " + channel.getName());
+			mLogger.log(LOG_TAG, "subscribed to channel " + channel.getName());
 		} catch (JSONException e) {
-			e.printStackTrace();
+			mLogger.log(e.toString());
+			//e.printStackTrace();
 		}
 	}
 
@@ -223,9 +250,11 @@ public class Pusher implements PusherEventEmitter {
 
 			sendEvent(eventName, eventData, null);
 
-			Log.d(LOG_TAG, "unsubscribed from channel " + channel.getName());
+			//Log.d(LOG_TAG, "unsubscribed from channel " + channel.getName());
+			mLogger.log(LOG_TAG, "unsubscribed from channel " + channel.getName());
 		} catch (JSONException e) {
-			e.printStackTrace();
+			mLogger.log(e.toString());
+			//e.printStackTrace();
 		}
 	}
 
@@ -250,9 +279,84 @@ public class Pusher implements PusherEventEmitter {
 	}
 
 	/* TODO: refactor */
-	private String authenticate(String channelName) {
+	private String authenticate(String channelName){
+		HttpClient httpclient = new DefaultHttpClient();
+	    HttpPost httppost = new HttpPost(authURL);
+	    
+	    // Send Pusher auth headers in request
+		if (this.auth.has("headers")){
+			try {
+				JSONObject headers = auth.getJSONObject("headers");
+				Iterator<String> it = (Iterator<String>) headers.keys();
+				while(it.hasNext()){
+					String key = it.next();
+					String value = headers.getString(key);
+					httppost.setHeader(key, value);					
+				}
+			} catch (Exception e) {
+				this.log( e.toString() );
+			}
+		}
+		
+		if (this.auth.has("params")){
+			JSONObject params;
+			List<NameValuePair> namedParams = new ArrayList<NameValuePair>(2);
+			try {
+				params = auth.getJSONObject("params");
+				Iterator<String> it = params.keys();
+				while(it.hasNext()){
+					String key = it.next();
+					String value = params.getString(key);
+					namedParams.add(new BasicNameValuePair(key, value));
+				}
+			} catch (Exception e) {
+				this.log( e.toString() );
+			}
+			
+			try {
+				httppost.setEntity(new UrlEncodedFormEntity(namedParams));
+			} catch (UnsupportedEncodingException e) {
+				this.log(e.toString());
+			}
+			
+			try {
+				HttpResponse response = httpclient.execute(httppost);
+			
+				String line = "";
+			    StringBuilder total = new StringBuilder();
+			    // Wrap a BufferedReader around the InputStream
+			    InputStreamReader reader = new InputStreamReader(response.getEntity().getContent());
+			    BufferedReader rd = new BufferedReader( reader );
+
+			    // Read response until the end
+			    while ((line = rd.readLine()) != null) { 
+			        total.append(line); 
+			    }
+			    
+			    // Return full string
+			    return total.toString();
+							
+			} catch (ClientProtocolException e) {
+				this.log(e.toString());
+			} catch (IOException e) {
+				this.log(e.toString());
+			} 
+			
+		}
+		
+	    return null;
+	}
+	
+	private String authenticateLocal(String channelName){
 		if (!isConnected()) {
-			Log.e(LOG_TAG, "pusher not connected, can't create auth string");
+			//Log.e(LOG_TAG, "pusher not connected, can't create auth string");
+			mLogger.log(LOG_TAG, "pusher not connected, can't create auth string");
+			return null;
+		}
+		
+		if (mPusherSecret == null){
+			//Log.e(LOG_TAG, "no Pusher Secret provided, can't authenticate locally");
+			mLogger.log(LOG_TAG, "no Pusher Secret provided, can't authenticate locally");
 			return null;
 		}
 
@@ -273,18 +377,22 @@ public class Pusher implements PusherEventEmitter {
 
 			String authInfo = mPusherKey + ":" + sb.toString();
 
-			Log.d(LOG_TAG, "Auth Info " + authInfo);
+			//Log.d(LOG_TAG, "Auth Info " + authInfo);
+			mLogger.log(LOG_TAG, "Auth Info " + authInfo);
 
 			return authInfo;
 
 		} catch (NoSuchAlgorithmException e) {
-			e.printStackTrace();
+			mLogger.log(e.toString());
+			//e.printStackTrace();
 		} catch (InvalidKeyException e) {
-			e.printStackTrace();
+			mLogger.log(e.toString());
+			//e.printStackTrace();
 		}
 
 		return null;
 	}
+	
 
 	private PusherChannel createLocalChannel(String channelName) {
 		PusherChannel channel = new PusherChannel(channelName);
@@ -304,7 +412,8 @@ public class Pusher implements PusherEventEmitter {
 		try {
 			userInfo.put(key, value);
 		} catch (JSONException e) {
-			e.printStackTrace();
+			mLogger.log(e.toString());
+			//e.printStackTrace();
 		}
 	}
 	
@@ -318,5 +427,13 @@ public class Pusher implements PusherEventEmitter {
 	
 	public PusherChannel getChannel(String value){
 		return mLocalChannels.get(value);
+	}
+	
+	public void setLogger(PusherLogger logger){
+		this.mLogger = logger;
+	}
+	
+	public void log(String message){
+		this.mLogger.log(message);
 	}
 }

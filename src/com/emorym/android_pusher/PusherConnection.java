@@ -43,17 +43,20 @@ class PusherConnection implements PusherEventEmitter {
 	public Pusher mPusher;
 	public WebSocket mWebSocket;
 
-	public String mState = "initialized";
-
+	protected static final String STATE_INITIALIZED ="initialized";
 	protected static final String STATE_CONNECTING = "connecting";
 	protected static final String STATE_CONNECTED = "connected";
 	protected static final String STATE_UNAVAILABLE = "unavailable";
 	protected static final String STATE_FAILED = "failed";
 	protected static final String STATE_DISCONNECTED = "disconnected";
 	
+	public String mState = STATE_INITIALIZED;
+	
 	protected static final String CONNECTING_IN = "connecting_in";
 	
 	protected static final long UNAVAILABILITY_CHECK_TIMER = 10000L;
+	
+	private boolean auto_reconnect = true; 
 
 	private List<PusherCallback> mGlobalCallbacks = new ArrayList<PusherCallback>();
 	private Map<String, List<PusherCallback>> mLocalCallbacks = new HashMap<String, List<PusherCallback>>();
@@ -99,9 +102,13 @@ class PusherConnection implements PusherEventEmitter {
 									.getString("socket_id");
 							mPusher.onConnected(socketId);
 						} else {
+							if (eventName.equals("pusher:ping")){
+								onPing();
+							}
 							mPusher.dispatchEvents(eventName, eventData,
 									channelName);
 						}
+						
 					} catch (JSONException e) {
 						Log.d(LOG_TAG, e.toString());
 					}
@@ -114,6 +121,7 @@ class PusherConnection implements PusherEventEmitter {
 				
 				public void onPing() {
 					Log.d(LOG_TAG, "Got a Ping");
+					send("pusher:pong", new JSONObject(), null);
 					changeConnectionState(STATE_CONNECTED);
 				}
 	            public void onPong() {
@@ -127,9 +135,11 @@ class PusherConnection implements PusherEventEmitter {
 		} catch (URISyntaxException e) {
 			this.changeConnectionState(STATE_FAILED);
 			//e.printStackTrace();
+			Log.d(LOG_TAG, e.toString());
 		} catch (WebSocketException e) {
 			this.connectionUnavailable();
 			//e.printStackTrace();
+			Log.d(LOG_TAG, e.toString());
 		}
 	}
 
@@ -222,6 +232,10 @@ class PusherConnection implements PusherEventEmitter {
 	}
 
 	private void connectionUnavailable() {
+		if (! this.auto_reconnect){
+			this.changeConnectionState(STATE_DISCONNECTED);
+			return;
+		}
 		this.changeConnectionState(STATE_UNAVAILABLE);
 		this.dispatchEvents(CONNECTING_IN, "{'delay': '" + UNAVAILABILITY_CHECK_TIMER + "'}");
 		Log.d(LOG_TAG, "connection_in");
@@ -235,7 +249,7 @@ class PusherConnection implements PusherEventEmitter {
             		connect();
             	}
             	if (mWebSocket.isConnected()){
-            		send("ping", new JSONObject(), null);
+            		send("pusher:ping", new JSONObject(), null);
             	}
 
             }
@@ -270,5 +284,9 @@ class PusherConnection implements PusherEventEmitter {
 	
 	public String state(){
 		return this.mState;
+	}
+	
+	public void setAutoReconnect(boolean value){
+		this.auto_reconnect = value;
 	}
 }

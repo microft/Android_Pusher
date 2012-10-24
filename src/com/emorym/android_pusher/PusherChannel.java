@@ -32,7 +32,7 @@ import android.os.Message;
 import android.util.Log;
 
 public class PusherChannel implements PusherEventEmitter {
-	private static final String LOG_TAG = "Pusher";
+	private static final String LOG_TAG = "PusherChannel";
 
 	private String mName;
 
@@ -62,13 +62,13 @@ public class PusherChannel implements PusherEventEmitter {
 		/* add the callback to the event's callback list */
 		mLocalCallbacks.get(event).add(callback);
 
-		Log.d(LOG_TAG, "bound to event " + event + " on channel " + mName);
+		//Log.d(LOG_TAG, "bound to event " + event + " on channel " + mName);
 	}
 
 	public void bindAll(PusherCallback callback) {
 		mGlobalCallbacks.add(callback);
 
-		Log.d(LOG_TAG, "bound to all events on channel " + mName);
+		//Log.d(LOG_TAG, "bound to all events on channel " + mName);
 	}
 
 	public void unbind(PusherCallback callback) {

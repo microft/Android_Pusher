@@ -42,6 +42,7 @@ public class PusherSampleActivity extends Activity {
 
 	private static final String PUSHER_APP_KEY = "33e9ab34f98fcc05005f";
 	private static final String PUSHER_APP_SECRET = "c14f5c143ebb5a331727";
+	private static final String PUSHER_AUTH_URL = "http://localhost";
 
 	private static final String PUBLIC_CHANNEL = "public-channel";
 	private static final String PRIVATE_CHANNEL = "private-channel";
@@ -66,7 +67,14 @@ public class PusherSampleActivity extends Activity {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.main);
 
-		mPusher = new Pusher(PUSHER_APP_KEY, PUSHER_APP_SECRET);
+		//mPusher = new Pusher(PUSHER_APP_KEY, PUSHER_APP_SECRET);
+		mPusher = new Pusher(PUSHER_APP_KEY, PUSHER_AUTH_URL, true, null );
+		mPusher.setLogger(new PusherLogger(){
+			@Override
+			public void log(String message){
+				Log.d(LOG_TAG, message);
+			}
+		});
 		
 		Random random = new Random();
 		mPusher.setUserId(""+random.nextInt());
