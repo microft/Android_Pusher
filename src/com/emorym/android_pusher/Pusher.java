@@ -232,24 +232,6 @@ public class Pusher implements PusherEventEmitter {
 				}
 			}
 			
-//			if (channel.isPrivate()) {
-//				String authString = authenticate(channel);
-//				JSONObject authInfo = new JSONObject(authString);
-//				eventData.put("auth", authInfo.getString("auth"));
-//			}
-			
-//			if (channel.isPresence()){
-//				String channelName = channel.getName();
-//				JSONObject channel_data = new JSONObject();		
-				//channel_data.put("user_id", userId);
-				//if (userInfo.keys().hasNext()){
-				//	channel_data.put("user_info", userInfo);
-				//}
-				//String authInfo = authenticate(channelName + ":" + channel_data.toString());
-				//eventData.put("auth", authInfo);
-				//eventData.put("channel_data", channel_data.toString());
-//			}
-
 			sendEvent(eventName, eventData, null);
 
 			//Log.d(LOG_TAG, "subscribed to channel " + channel.getName());
