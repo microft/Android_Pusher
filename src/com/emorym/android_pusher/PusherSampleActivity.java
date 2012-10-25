@@ -32,6 +32,7 @@ import android.widget.ToggleButton;
 
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.List;
 import java.util.Random;
 
@@ -42,7 +43,7 @@ public class PusherSampleActivity extends Activity {
 
 	private static final String PUSHER_APP_KEY = "33e9ab34f98fcc05005f";
 	private static final String PUSHER_APP_SECRET = "c14f5c143ebb5a331727";
-	private static final String PUSHER_AUTH_URL = "http://localhost";
+	private static final String PUSHER_AUTH_URL = "http://192.168.2.111:3000/auth/";
 
 	private static final String PUBLIC_CHANNEL = "public-channel";
 	private static final String PRIVATE_CHANNEL = "private-channel";
@@ -68,7 +69,17 @@ public class PusherSampleActivity extends Activity {
 		setContentView(R.layout.main);
 
 		//mPusher = new Pusher(PUSHER_APP_KEY, PUSHER_APP_SECRET);
-		mPusher = new Pusher(PUSHER_APP_KEY, PUSHER_AUTH_URL, true, null );
+		Map<String, Map<String,String>> auth = new HashMap<String,Map<String,String>>();
+		
+		HashMap<String,String> params = new HashMap<String,String>();
+		params.put("XPTO", "xpto");
+		auth.put("params", params);
+		
+		HashMap<String,String> headers = new HashMap<String,String>();
+		params.put("HEADERXPTO", "headerxpto");
+		auth.put("headers", headers);
+		
+ 		mPusher = new Pusher(PUSHER_APP_KEY, PUSHER_AUTH_URL, true, auth );
 		mPusher.setLogger(new PusherLogger(){
 			@Override
 			public void log(String message){
@@ -78,8 +89,8 @@ public class PusherSampleActivity extends Activity {
 		
 		Random random = new Random();
 		mPusher.setUserId(""+random.nextInt());
-		mPusher.setUserInfo("name", ""+random.nextInt());
-		mPusher.setUserInfo("email", ""+random.nextInt()+"@silvabraga.com");
+		//mPusher.setUserInfo("name", ""+random.nextInt());
+		//mPusher.setUserInfo("email", ""+random.nextInt()+"@silvabraga.com");
 		
 		mPusher.bindAll(new PusherCallback() {
 			@Override
@@ -153,16 +164,16 @@ public class PusherSampleActivity extends Activity {
 						});
 					 
 					 PusherChannel presence = mPusher.subscribe(PRESENCE_CHANNEL);
-					 presence.bindAll(new PusherCallback(){
-						@Override
-						public void onEvent(String eventName, JSONObject eventData, String channelName) {
-							Toast.makeText(PusherSampleActivity.this,
-										   "Received\nEvent: " + eventName + "\nChannel: " + channelName + "\nData: " + eventData.toString(),
-										   Toast.LENGTH_LONG).show();
-							
-							Log.d(LOG_TAG, "Received " + eventData.toString() + " for event '" + eventName + "' on channel '" + channelName + "'.");
-						}					
-					});
+//					 presence.bindAll(new PusherCallback(){
+//						@Override
+//						public void onEvent(String eventName, JSONObject eventData, String channelName) {
+//							Toast.makeText(PusherSampleActivity.this,
+//										   "Received\nEvent: " + eventName + "\nChannel: " + channelName + "\nData: " + eventData.toString(),
+//										   Toast.LENGTH_LONG).show();
+//							
+//							Log.d(LOG_TAG, "Received " + eventData.toString() + " for event '" + eventName + "' on channel '" + channelName + "'.");
+//						}					
+//					});
 					
 				} else {
 					mPusher.unsubscribe(PRIVATE_CHANNEL);
@@ -174,14 +185,14 @@ public class PusherSampleActivity extends Activity {
 		sendButton.setOnClickListener(new OnClickListener() {
 			@Override
 			public void onClick(View v) {
-//				try {
-//					String eventName = eventNameField.getText().toString();
-//					String channelName = channelNameField.getText().toString();
-//					JSONObject eventData = new JSONObject(eventDataField.getText().toString());
-//					mPusher.sendEvent(eventName, eventData, channelName);
-//				} catch (Exception e) {
-//					e.printStackTrace();
-//				}
+				try {
+					String eventName = eventNameField.getText().toString();
+					String channelName = channelNameField.getText().toString();
+					JSONObject eventData = new JSONObject(eventDataField.getText().toString());
+					mPusher.sendEvent(eventName, eventData, channelName);
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
 				PusherChannel presence_channel = mPusher.getChannel(PRESENCE_CHANNEL);
 				if ( presence_channel != null ){
 					HashMap<String, JSONObject> presence_users = (HashMap<String, JSONObject>) mPusher.getChannel(PRESENCE_CHANNEL).getUsers();

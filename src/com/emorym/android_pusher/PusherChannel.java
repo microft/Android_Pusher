@@ -103,7 +103,11 @@ public class PusherChannel implements PusherEventEmitter {
 				for (int i =0;  i < users.length(); i++) {			
 					try {
 						JSONObject user = users.getJSONObject(i);
-						this.mLocalUsers.put(user.getString("user_id"), user.getJSONObject("user_info"));
+						if (user.has("user_info")){
+							this.mLocalUsers.put(user.getString("user_id"), user.getJSONObject("user_info"));
+						} else {
+							this.mLocalUsers.put(user.getString("user_id"), new JSONObject());
+						}
 					} catch (JSONException e) {
 						e.printStackTrace();
 					}

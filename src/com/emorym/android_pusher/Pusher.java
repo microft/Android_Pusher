@@ -28,6 +28,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
 
 import javax.crypto.Mac;
 import javax.crypto.SecretKey;
@@ -79,11 +81,13 @@ public class Pusher implements PusherEventEmitter {
 	
 	public String userId = "";
 	private JSONObject userInfo = new JSONObject();
+	//private Map<String,String> userInfo = new HashMap<String, String>();
 	
 	private PusherLogger mLogger = new PusherLogger() {};
 	
 	private String authURL = null;
-	private JSONObject auth = new JSONObject();
+	private Map<String, String> auth_headers = new HashMap<String, String>();
+	private Map<String, String> auth_params = new HashMap<String, String>();
 
 //	public Pusher(String pusherKey, String pusherSecret, boolean encrypted) {
 //		init(pusherKey, pusherSecret, encrypted);
@@ -101,10 +105,15 @@ public class Pusher implements PusherEventEmitter {
 //		init(pusherKey, null, true);
 //	}
 	
-	public Pusher(String pusherKey, String authURL, boolean encrypted, JSONObject auth){
+	public Pusher(String pusherKey, String authURL, boolean encrypted, Map<String,Map<String,String>> auth){
 		init(pusherKey, null, encrypted);
 		this.authURL = authURL;
-		this.auth = auth;
+		if (auth.containsKey("headers")){
+			this.auth_headers = auth.get("headers");
+		}
+		if (auth.containsKey("params")){
+			this.auth_params = auth.get("params");
+		}
 	}
 	
 	private void init(String pusherKey, String pusherSecret, boolean encrypted) {
@@ -211,22 +220,35 @@ public class Pusher implements PusherEventEmitter {
 			JSONObject eventData = new JSONObject();
 			eventData.put("channel", channel.getName());
 
-			if (channel.isPrivate()) {
-				String authInfo = authenticate(channel.getName());
-				eventData.put("auth", authInfo);
+			
+			if (channel.isPrivate() || channel.isPresence()){
+				String authString = authenticate(channel);
+				JSONObject authInfo = new JSONObject(authString);
+				Iterator<String> iter = authInfo.keys();
+				while( iter.hasNext() ){
+					String key = iter.next();
+					String value = authInfo.getString(key);
+					eventData.put(key, value);
+				}
 			}
 			
-			if (channel.isPresence()){
-				String channelName = channel.getName();
-				JSONObject channel_data = new JSONObject();		
-				channel_data.put("user_id", userId);
-				if (userInfo.keys().hasNext()){
-					channel_data.put("user_info", userInfo);
-				}
-				String authInfo = authenticate(channelName + ":" + channel_data.toString());
-				eventData.put("auth", authInfo);
-				eventData.put("channel_data", channel_data.toString());
-			}
+//			if (channel.isPrivate()) {
+//				String authString = authenticate(channel);
+//				JSONObject authInfo = new JSONObject(authString);
+//				eventData.put("auth", authInfo.getString("auth"));
+//			}
+			
+//			if (channel.isPresence()){
+//				String channelName = channel.getName();
+//				JSONObject channel_data = new JSONObject();		
+				//channel_data.put("user_id", userId);
+				//if (userInfo.keys().hasNext()){
+				//	channel_data.put("user_info", userInfo);
+				//}
+				//String authInfo = authenticate(channelName + ":" + channel_data.toString());
+				//eventData.put("auth", authInfo);
+				//eventData.put("channel_data", channel_data.toString());
+//			}
 
 			sendEvent(eventName, eventData, null);
 
@@ -279,71 +301,79 @@ public class Pusher implements PusherEventEmitter {
 	}
 
 	/* TODO: refactor */
-	private String authenticate(String channelName){
+	private String authenticate(PusherChannel channel){
+		String channelName = channel.getName();
+		
 		HttpClient httpclient = new DefaultHttpClient();
 	    HttpPost httppost = new HttpPost(authURL);
 	    
-	    // Send Pusher auth headers in request
-		if (this.auth.has("headers")){
-			try {
-				JSONObject headers = auth.getJSONObject("headers");
-				Iterator<String> it = (Iterator<String>) headers.keys();
-				while(it.hasNext()){
-					String key = it.next();
-					String value = headers.getString(key);
-					httppost.setHeader(key, value);					
-				}
-			} catch (Exception e) {
-				this.log( e.toString() );
+	    // Add all extra headers to the request
+	    if( !this.auth_headers.isEmpty() ){
+	    	Set<String> keys = this.auth_headers.keySet();
+	    	Iterator<String> iter = keys.iterator();
+			while( iter.hasNext() ){
+				String key = iter.next();
+				String value = this.auth_headers.get(key);
+				httppost.setHeader(key, value);
 			}
+	    }
+		
+	    // Prepare params 
+		List<NameValuePair> namedParams = new ArrayList<NameValuePair>(2);
+		namedParams.add(new BasicNameValuePair( "socket_id", this.mSocketId));
+		namedParams.add(new BasicNameValuePair( "channel_name", channelName));
+		
+		if (channel.isPresence()){
+			namedParams.add(new BasicNameValuePair( "user_id", this.userId));
+			if (this.userInfo.length() > 0){
+				namedParams.add(new BasicNameValuePair( "user_info", this.userInfo.toString()));
+			}
+			//Iterator<Entry<String,String>> iter = this.userInfo.entrySet().iterator();
+			//while(iter.hasNext()){
+			//	Entry<String,String> entry = iter.next();
+			//	namedParams.add(new BasicNameValuePair( entry.getKey(), entry.getValue()));
+			//}
 		}
 		
-		if (this.auth.has("params")){
-			JSONObject params;
-			List<NameValuePair> namedParams = new ArrayList<NameValuePair>(2);
-			try {
-				params = auth.getJSONObject("params");
-				Iterator<String> it = params.keys();
-				while(it.hasNext()){
-					String key = it.next();
-					String value = params.getString(key);
-					namedParams.add(new BasicNameValuePair(key, value));
-				}
-			} catch (Exception e) {
-				this.log( e.toString() );
-			}
-			
-			try {
-				httppost.setEntity(new UrlEncodedFormEntity(namedParams));
-			} catch (UnsupportedEncodingException e) {
-				this.log(e.toString());
-			}
-			
-			try {
-				HttpResponse response = httpclient.execute(httppost);
-			
-				String line = "";
-			    StringBuilder total = new StringBuilder();
-			    // Wrap a BufferedReader around the InputStream
-			    InputStreamReader reader = new InputStreamReader(response.getEntity().getContent());
-			    BufferedReader rd = new BufferedReader( reader );
+		// Add all extra params to the request
+		if (! this.auth_params.isEmpty()){		
+			Set<String> keys = this.auth_params.keySet();
+			Iterator<String> iter = keys.iterator();
+			while( iter.hasNext() ){
+				String key = iter.next();
+				String value = this.auth_params.get(key);
+				namedParams.add(new BasicNameValuePair( key, value));
+			}			
+		}
+		
+		try {
+			httppost.setEntity(new UrlEncodedFormEntity(namedParams));
+		} catch (UnsupportedEncodingException e) {
+			this.log(e.toString());
+		}
 
-			    // Read response until the end
-			    while ((line = rd.readLine()) != null) { 
-			        total.append(line); 
-			    }
-			    
-			    // Return full string
-			    return total.toString();
-							
-			} catch (ClientProtocolException e) {
-				this.log(e.toString());
-			} catch (IOException e) {
-				this.log(e.toString());
-			} 
-			
-		}
-		
+		try {
+			HttpResponse response = httpclient.execute(httppost);
+
+			String line = "";
+			StringBuilder total = new StringBuilder();
+			// Wrap a BufferedReader around the InputStream
+			InputStreamReader reader = new InputStreamReader(response.getEntity().getContent());
+			BufferedReader rd = new BufferedReader( reader );
+
+			// Read response until the end
+			while ((line = rd.readLine()) != null) { 
+				total.append(line); 
+			}
+
+			// Return full string
+			return total.toString();
+		} catch (ClientProtocolException e) {
+			this.log(e.toString());
+		} catch (IOException e) {
+			this.log(e.toString());
+		} 
+
 	    return null;
 	}
 	
@@ -412,8 +442,7 @@ public class Pusher implements PusherEventEmitter {
 		try {
 			userInfo.put(key, value);
 		} catch (JSONException e) {
-			mLogger.log(e.toString());
-			//e.printStackTrace();
+			this.log(e.toString());
 		}
 	}
 	
